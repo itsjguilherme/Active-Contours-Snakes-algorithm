@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#define PI 3.14159265358979323846
 
 // Estas duas linhas ativam a biblioteca que baixamos para ler e escrever PNGs
 #define STB_IMAGE_IMPLEMENTATION
@@ -100,10 +101,10 @@ int main() {
     int width, height, channels;
     
     // 1. CARREGAR A IMAGEM
-    // Certifique-se de que a sua ressonância original se chama "index_06.png" na mesma pasta
-    unsigned char *img = stbi_load("index_06.png", &width, &height, &channels, 1);
+    // Certifique-se de que a sua ressonância original se chama "cerebro_imagem.png" na mesma pasta
+    unsigned char *img = stbi_load("cerebro_imagem.png", &width, &height, &channels, 1);
     if (img == NULL) {
-        printf("[!] Erro ao carregar index_06.png. O arquivo esta na pasta?\n");
+        printf("[!] Erro ao carregar cerebro_imagem.png. O arquivo esta na pasta?\n");
         return 1;
     }
     printf("[+] Imagem carregada: %dx%d pixels.\n", width, height);
@@ -112,25 +113,36 @@ int main() {
     printf("[+] Calculando forcas da imagem (Bordas)...\n");
     ForceMap map = create_edge_forces(img, width, height);
 
-    // 3. INICIALIZAR A SNAKE (O Retângulo Vermelho inicial do index_06.png)
+    // 3. INICIALIZAR A SNAKE (Formato híbrido: Oval achatado no topo)
     double x[N_POINTS], y[N_POINTS];
-    int points_per_side = N_POINTS / 4;
-    int min_x = width * 0.25; int max_x = width * 0.75; // Caixa pega 50% do centro
-    int min_y = height * 0.25; int max_y = height * 0.75;
     
-    int idx = 0;
-    // Topo
-    for (int i=0; i<points_per_side; i++) { x[idx] = min_x + i*((max_x-min_x)/(double)points_per_side); y[idx] = min_y; idx++; }
-    // Direita
-    for (int i=0; i<points_per_side; i++) { x[idx] = max_x; y[idx] = min_y + i*((max_y-min_y)/(double)points_per_side); idx++; }
-    // Base
-    for (int i=0; i<points_per_side; i++) { x[idx] = max_x - i*((max_x-min_x)/(double)points_per_side); y[idx] = max_y; idx++; }
-    // Esquerda
-    for (int i=0; i<points_per_side; i++) { x[idx] = min_x; y[idx] = max_y - i*((max_y-min_y)/(double)points_per_side); idx++; }
-
+    double centro_x = width / 2.0;
+    double centro_y = height / 2.0;
+    
+    double raio_x = width * 0.31; 
+    
+    // Criamos dois raios diferentes para o eixo Y
+    double raio_y_baixo = height * 0.42; // Raio normal para a base do cérebro
+    double raio_y_topo = height * 0.30;  // Raio encurtado para achatar o topo
+    
+    for (int i = 0; i < N_POINTS; i++) {
+        double angulo = ((double)i / N_POINTS) * (2.0 * PI); 
+        x[i] = centro_x + raio_x * cos(angulo);
+        
+        // Se o seno for negativo, estamos desenhando a metade de CIMA da imagem
+        if (sin(angulo) < 0) {
+            y[i] = centro_y + raio_y_topo * sin(angulo); // Aplica o achatamento
+        } 
+        // Senão, estamos desenhando a metade de BAIXO
+        else {
+            y[i] = centro_y + raio_y_baixo * sin(angulo); // Mantém ovalado
+        }
+    }
+    
     // 4. RODAR O ALGORITMO
     printf("[+] Deformando a Snake para achar o cerebro...\n");
-    iterate_snake(x, y, map, 0.05, 0.01, 1.0, 0.005, 300); // 300 iteracoes
+    // iterate_snake(x, y, map, alpha, beta, gamma, w_ext, iterações);
+    iterate_snake(x, y, map, 0.7, 0.99, 0.1, 0.003, 100000);
 
     // 5. SALVAR O ARQUIVO CSV
     FILE *fp = fopen("coordenadas_cerebro.csv", "w");
@@ -141,7 +153,7 @@ int main() {
 
     // 6. DESENHAR O RESULTADO (O equivalente ao index_07.png)
     // Recarrega a imagem em modo colorido (RGB) para podermos pintar de vermelho
-    unsigned char *color_img = stbi_load("index_06.png", &width, &height, &channels, 3);
+    unsigned char *color_img = stbi_load("cerebro_imagem.png", &width, &height, &channels, 3);
     for (int i = 0; i < N_POINTS; i++) {
         int px = (int)x[i]; int py = (int)y[i];
         if (px >= 0 && px < width && py >= 0 && py < height) {
