@@ -4,25 +4,17 @@
 
 #define PI 3.14159265358979323846
 
-// CUMPRINDO O REQUISITO DA ESTRUTURA DE DADOS:
-// 500 elementos double = 4000 bytes para X + 4000 bytes para Y = 8000 bytes (~8 KBytes)
 #define N_POINTS 500 
 
-// CUMPRINDO O REQUISITO "SEM ALOCAÇÃO DINÂMICA":
-// Como não podemos usar malloc, definimos um tamanho máximo estático para a foto
 #define MAX_WIDTH 512
 #define MAX_HEIGHT 512
 
-// Variáveis Globais (Alocação Estática, zero malloc)
 int img_width, img_height, max_color_val;
 unsigned char image_data[MAX_HEIGHT][MAX_WIDTH];
 double map_fx[MAX_HEIGHT][MAX_WIDTH];
 double map_fy[MAX_HEIGHT][MAX_WIDTH];
 double magnitude[MAX_HEIGHT][MAX_WIDTH];
 
-/* =========================================================================
- * LEITOR E ESCRITOR DE ARQUIVOS PGM P2 (CUMPRINDO O REQUISITO DE IMAGEM)
- * ========================================================================= */
 int load_pgm(const char *filename) {
     FILE *fp = fopen(filename, "r");
     if (!fp) return 0;
@@ -42,7 +34,6 @@ int load_pgm(const char *filename) {
     }
     ungetc(c, fp);
 
-    // Lê as dimensões e o valor máximo de cor
     fscanf(fp, "%d %d %d", &img_width, &img_height, &max_color_val);
 
     if (img_width > MAX_WIDTH || img_height > MAX_HEIGHT) {
@@ -51,7 +42,6 @@ int load_pgm(const char *filename) {
         return 0;
     }
 
-    // Lê os pixels (Valores em texto, já que é P2)
     for (int y = 0; y < img_height; y++) {
         for (int x = 0; x < img_width; x++) {
             int pixel_val;
@@ -67,12 +57,11 @@ int load_pgm(const char *filename) {
 void save_pgm_result(const char *filename, double *snake_x, double *snake_y) {
     FILE *fp = fopen(filename, "w");
     
-    // Cabeçalho PGM P2
     fprintf(fp, "P2\n");
     fprintf(fp, "%d %d\n", img_width, img_height);
     fprintf(fp, "255\n");
 
-    // Cria uma cópia da imagem na memória para podermos "pintar" o contorno
+    // Cópia da imagem na memória para podermos "pintar" o contorno
     unsigned char saida[MAX_HEIGHT][MAX_WIDTH];
     for (int y = 0; y < img_height; y++) {
         for (int x = 0; x < img_width; x++) {
@@ -80,13 +69,12 @@ void save_pgm_result(const char *filename, double *snake_x, double *snake_y) {
         }
     }
 
-    // Desenha a Snake (Pintamos os pixels de branco brilhante = 255)
+    // Desenha a Snake
     for (int i = 0; i < N_POINTS; i++) {
         int px = (int)snake_x[i];
         int py = (int)snake_y[i];
         if (px >= 0 && px < img_width && py >= 0 && py < img_height) {
             saida[py][px] = 255;
-            // Pinta um pequeno + para ficar visível na imagem PGM
             if(px+1 < img_width) saida[py][px+1] = 255;
             if(px-1 >= 0) saida[py][px-1] = 255;
             if(py+1 < img_height) saida[py+1][px] = 255;
@@ -94,7 +82,6 @@ void save_pgm_result(const char *filename, double *snake_x, double *snake_y) {
         }
     }
 
-    // Grava os pixels no arquivo de texto
     for (int y = 0; y < img_height; y++) {
         for (int x = 0; x < img_width; x++) {
             fprintf(fp, "%d ", saida[y][x]);
@@ -104,17 +91,17 @@ void save_pgm_result(const char *filename, double *snake_x, double *snake_y) {
     
     fclose(fp);
 }
-
-/* =========================================================================
- * PASSO A: CRIAR O MAPA DE PESOS (Reescrito para matriz estática)
- * ========================================================================= */
 void create_edge_forces() {
-    // 1. Filtro de Sobel (CUMPRINDO REQUISITO: Laços aninhados)
     for (int y = 1; y < img_height - 1; y++) {
         for (int x = 1; x < img_width - 1; x++) {
-            int p1 = image_data[y-1][x-1]; int p2 = image_data[y-1][x]; int p3 = image_data[y-1][x+1];
-            int p4 = image_data[y][x-1];   /* centro */                 int p6 = image_data[y][x+1];
-            int p7 = image_data[y+1][x-1]; int p8 = image_data[y+1][x]; int p9 = image_data[y+1][x+1];
+            int p1 = image_data[y-1][x-1]; 
+            int p2 = image_data[y-1][x]; 
+            int p3 = image_data[y-1][x+1];
+            int p4 = image_data[y][x-1];                                
+            int p6 = image_data[y][x+1];
+            int p7 = image_data[y+1][x-1]; 
+            int p8 = image_data[y+1][x]; 
+            int p9 = image_data[y+1][x+1];
 
             double gx = -p1 + p3 - 2*p4 + 2*p6 - p7 + p9;
             double gy = -p1 - 2*p2 - p3 + p7 + 2*p8 + p9;
@@ -123,7 +110,6 @@ void create_edge_forces() {
         }
     }
 
-    // 2. Gradiente do Mapa de Bordas
     for (int y = 1; y < img_height - 1; y++) {
         for (int x = 1; x < img_width - 1; x++) {
             map_fx[y][x] = magnitude[y][x+1] - magnitude[y][x-1];
@@ -132,9 +118,6 @@ void create_edge_forces() {
     }
 }
 
-/* =========================================================================
- * PASSO B: O MOTOR DA SNAKE
- * ========================================================================= */
 void iterate_snake(double *x, double *y, double alpha, double beta, double gamma, double w_ext, int n_iters) {
     double new_x[N_POINTS], new_y[N_POINTS];
 
@@ -162,23 +145,17 @@ void iterate_snake(double *x, double *y, double alpha, double beta, double gamma
     }
 }
 
-/* =========================================================================
- * FUNÇÃO PRINCIPAL
- * ========================================================================= */
 int main() {
-    // 1. CARREGAR A IMAGEM (Agora lendo o formato acadêmico PGM)
     if (!load_pgm("Imagens_pgm/cerebro_imagem.pgm")) {
-        printf("[!] Erro: Nao foi possivel carregar 'cerebro_imagem.pgm'.\n");
-        printf("    Certifique-se de que a imagem foi convertida para PGM P2 (ASCII).\n");
+        printf("[!] Erro: Nao foi possivel carregar a imagem.\n");
+        printf("Certifique-se de que a imagem foi convertida para PGM P2 (ASCII).\n");
         return 1;
     }
     printf("[+] Imagem PGM carregada com sucesso: %dx%d pixels.\n", img_width, img_height);
 
-    // 2. CRIAR MAPA DE FORÇAS
     printf("[+] Calculando forcas da imagem...\n");
     create_edge_forces();
 
-    // 3. INICIALIZAR A SNAKE (Estrutura de ~8 KBytes)
     double x[N_POINTS], y[N_POINTS];
     
     double centro_x = img_width / 2.0;
@@ -199,11 +176,9 @@ int main() {
         }
     }
     
-    // 4. RODAR O ALGORITMO
     printf("[+] Deformando a Snake para achar o cerebro...\n");
     iterate_snake(x, y, 0.7, 0.99, 0.1, 0.003, 10000);
 
-    // 5. SALVAR ARQUIVO PGM DE SAÍDA E CSV
     save_pgm_result("resultado.pgm", x, y);
     printf("[+] Imagem final salva como 'resultado.pgm'.\n");
 
@@ -213,5 +188,5 @@ int main() {
     fclose(fp);
     printf("[+] Coordenadas salvas em 'coordenadas_cerebro.csv'.\n");
 
-    return 0; // Fim do programa, sem memory leaks pois não há alocação dinâmica!
+    return 0;
 }
