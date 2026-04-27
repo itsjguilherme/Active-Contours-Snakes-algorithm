@@ -3,7 +3,7 @@
 #include <math.h>
 
 #define PI 3.14159265358979323846
-#define N_POINTS 500
+#define N_POINTS 250
 
 #define MAX_WIDTH 512
 #define MAX_HEIGHT 512
@@ -21,13 +21,11 @@ int load_pgm(const char *filename) {
     char magic[3];
     fscanf(fp, "%2s", magic);
 
-    // Verificação do identificador do arquivo (formato PGM ASCII - P2)
     if (magic[0] != 'P' || magic[1] != '2') {
         fclose(fp);
         return 0;
     }
 
-    // Ignora comentários e espaços iniciais conforme especificação do formato PGM
     int c = getc(fp);
     while (c == '#' || c == '\n' || c == '\r' || c == ' ') {
         if (c == '#') {
@@ -39,14 +37,12 @@ int load_pgm(const char *filename) {
 
     fscanf(fp, "%d %d %d", &img_width, &img_height, &max_color_val);
 
-    // Garante que a imagem caiba nos buffers estáticos definidos
     if (img_width > MAX_WIDTH || img_height > MAX_HEIGHT) {
-        printf("[!] Erro: A imagem eh maior que o limite estatico (%dx%d).\n", MAX_WIDTH, MAX_HEIGHT);
+        printf("[!] Erro: imagem maior que limite.\n");
         fclose(fp);
         return 0;
     }
 
-    // Leitura sequencial dos pixels da imagem
     for (int y = 0; y < img_height; y++) {
         for (int x = 0; x < img_width; x++) {
             int pixel_val;
@@ -62,27 +58,20 @@ int load_pgm(const char *filename) {
 void save_pgm_result(const char *filename, double *snake_x, double *snake_y) {
     FILE *fp = fopen(filename, "w");
 
-    fprintf(fp, "P2\n");
-    fprintf(fp, "%d %d\n", img_width, img_height);
-    fprintf(fp, "255\n");
+    fprintf(fp, "P2\n%d %d\n255\n", img_width, img_height);
 
-    // Cria uma cópia da imagem original para preservar os dados originais
     unsigned char saida[MAX_HEIGHT][MAX_WIDTH];
-    for (int y = 0; y < img_height; y++) {
-        for (int x = 0; x < img_width; x++) {
-            saida[y][x] = image_data[y][x];
-        }
-    }
 
-    // Sobrepõe o contorno da Snake na imagem
+    for (int y = 0; y < img_height; y++)
+        for (int x = 0; x < img_width; x++)
+            saida[y][x] = image_data[y][x];
+
     for (int i = 0; i < N_POINTS; i++) {
         int px = (int)snake_x[i];
         int py = (int)snake_y[i];
 
         if (px >= 0 && px < img_width && py >= 0 && py < img_height) {
             saida[py][px] = 255;
-
-            // Pequena dilatação do ponto para melhorar a visualização do contorno
             if (px + 1 < img_width) saida[py][px + 1] = 255;
             if (px - 1 >= 0)        saida[py][px - 1] = 255;
             if (py + 1 < img_height) saida[py + 1][px] = 255;
@@ -90,7 +79,6 @@ void save_pgm_result(const char *filename, double *snake_x, double *snake_y) {
         }
     }
 
-    // Escrita da imagem resultante no formato PGM
     for (int y = 0; y < img_height; y++) {
         for (int x = 0; x < img_width; x++) {
             fprintf(fp, "%d ", saida[y][x]);
@@ -102,9 +90,9 @@ void save_pgm_result(const char *filename, double *snake_x, double *snake_y) {
 }
 
 void create_edge_forces() {
-    // Etapa 1: cálculo do gradiente (aproximação tipo Sobel) para evidenciar bordas
     for (int y = 1; y < img_height - 1; y++) {
         for (int x = 1; x < img_width - 1; x++) {
+
             int p1 = image_data[y - 1][x - 1];
             int p2 = image_data[y - 1][x];
             int p3 = image_data[y - 1][x + 1];
@@ -121,7 +109,6 @@ void create_edge_forces() {
         }
     }
 
-    // Etapa 2: cálculo do campo de forças externas a partir da variação do gradiente
     for (int y = 1; y < img_height - 1; y++) {
         for (int x = 1; x < img_width - 1; x++) {
             map_fx[y][x] = magnitude[y][x + 1] - magnitude[y][x - 1];
@@ -140,9 +127,6 @@ void iterate_snake(double *x, double *y, double alpha, double beta, double gamma
             int n1 = (i + 1) % N_POINTS;
             int n2 = (i + 2) % N_POINTS;
 
-            // Energia interna:
-            // - termo alpha controla elasticidade (tendência a encurtar)
-            // - termo beta controla rigidez (suavidade da curvatura)
             double f_int_x = alpha * (x[p1] + x[n1] - 2 * x[i]) -
                              beta * (x[p2] - 4 * x[p1] + 6 * x[i] - 4 * x[n1] + x[n2]);
 
@@ -151,20 +135,18 @@ void iterate_snake(double *x, double *y, double alpha, double beta, double gamma
 
             int ix = (int)x[i];
             int iy = (int)y[i];
+
             double f_ext_x = 0, f_ext_y = 0;
 
-            // Energia externa: atrai a curva para regiões de alto gradiente (bordas)
             if (ix > 0 && ix < img_width - 1 && iy > 0 && iy < img_height - 1) {
                 f_ext_x = map_fx[iy][ix] * w_ext;
                 f_ext_y = map_fy[iy][ix] * w_ext;
             }
 
-            // Atualização iterativa da posição (método explícito)
             new_x[i] = x[i] + gamma * (f_int_x + f_ext_x);
             new_y[i] = y[i] + gamma * (f_int_y + f_ext_y);
         }
 
-        // Atualiza todos os pontos da curva
         for (int i = 0; i < N_POINTS; i++) {
             x[i] = new_x[i];
             y[i] = new_y[i];
@@ -173,59 +155,44 @@ void iterate_snake(double *x, double *y, double alpha, double beta, double gamma
 }
 
 int main() {
-    if (!load_pgm("Imagens_pgm/cerebro_imagem.pgm")) {
-        printf("[!] Erro: Nao foi possivel carregar a imagem.\n");
-        printf("Certifique-se de que a imagem foi convertida para PGM P2 (ASCII).\n");
+    if (!load_pgm("imagem_olho.pgm")) {
+        printf("[!] Erro ao carregar imagem.\n");
         return 1;
     }
 
-    printf("[+] Imagem PGM carregada com sucesso: %dx%d pixels.\n", img_width, img_height);
+    printf("[+] Imagem carregada: %dx%d\n", img_width, img_height);
 
-    printf("[+] Calculando forcas da imagem...\n");
     create_edge_forces();
 
     double x[N_POINTS], y[N_POINTS];
 
-    // Inicialização da Snake como uma curva fechada aproximadamente elíptica
-    // posicionada no centro da imagem
     double centro_x = img_width / 2.0;
     double centro_y = img_height / 2.0;
-    double raio_x = img_width * 0.31;
-
-    double raio_y_baixo = img_height * 0.42;
-    double raio_y_topo = img_height * 0.30;
+    double raio = (img_width < img_height ? img_width : img_height) * 0.25;
 
     for (int i = 0; i < N_POINTS; i++) {
         double angulo = ((double)i / N_POINTS) * (2.0 * PI);
-        x[i] = centro_x + raio_x * cos(angulo);
-
-        // Ajuste assimétrico para melhor adaptação ao formato do cérebro
-        if (sin(angulo) < 0) {
-            y[i] = centro_y + raio_y_topo * sin(angulo);
-        } else {
-            y[i] = centro_y + raio_y_baixo * sin(angulo);
-        }
+        x[i] = centro_x + raio * cos(angulo);
+        y[i] = centro_y + raio * sin(angulo);
     }
 
-    printf("[+] Deformando a Snake para achar o cerebro...\n");
+    printf("[+] Executando snake...\n");
 
-    // Processo iterativo de minimização de energia da Snake
-    iterate_snake(x, y, 0.7, 0.99, 0.1, 0.003, 10000);
+    iterate_snake(x, y, 0.7, 0.9, 0.1, 0.001, 100000);
 
     save_pgm_result("resultado.pgm", x, y);
-    printf("[+] Imagem final salva como 'resultado.pgm'.\n");
 
-    FILE *fp = fopen("coordenadas_cerebro.csv", "w");
-    fprintf(fp, "x,y\n");
+    // 🔥 AGORA SALVA EM TXT
+    FILE *fp = fopen("coordenadas_cerebro.txt", "w");
 
-    // Exporta os pontos finais da curva para análise posterior
     for (int i = 0; i < N_POINTS; i++) {
-        fprintf(fp, "%f,%f\n", x[i], y[i]);
+        fprintf(fp, "%f, %f\n", x[i], y[i]);
     }
 
     fclose(fp);
 
-    printf("[+] Coordenadas salvas em 'coordenadas_cerebro.csv'.\n");
+    printf("[+] Coordenadas salvas em 'coordenadas_cerebro.txt'.\n");
+    printf("[+] Finalizado.\n");
 
     return 0;
 }
