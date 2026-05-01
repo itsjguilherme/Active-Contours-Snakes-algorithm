@@ -18,9 +18,9 @@
  *  Data:
  *  30/04/2026
  *
- *  Plataforma-alvo: ???? Daniel oq a gnt coloca?
- *  - Sistema operacional: [PREENCHER: Windows / Linux / macOS] ????
- *  - Compilador: GCC / Clang / equivalente compatível com C99 ???
+ *  Plataforma-alvo: Nucleo STM32F030
+ *  - Sistema operacional: Linux
+ *  - Compilador: GCC / Clang / equivalente compatível com C99
  *
  *  Entrada:
  *  - Arquivo PGM (formato ASCII P2) com imagem em tons de cinza.
